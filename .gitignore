@@ -3,9 +3,11 @@ venv-anomaly/
 venv/
 .env/
 
+*.mp4
+*.jpg
+
 # Python cache
 __pycache__/
-*.py[cod]
 *.pyo
 *.pyd
 *.so
