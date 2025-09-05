@@ -1,6 +1,7 @@
 from dotenv import load_dotenv
 from openai import AzureOpenAI
 import os
+from pathlib import Path
 
 load_dotenv()
 
@@ -14,10 +15,21 @@ class AOAIConfig:
             raise ValueError("Missing required AOAI configuration in environment variables.")
 
 class Label(AOAIConfig):
-    def __init__(self, llm_deployed_name:str='o4-mini-team1'):
+    def __init__(self, context_prompt_path:Path, llm_deployed_name:str='o4-mini-team1'):
         super().__init__()
+    
         self.llm_model = llm_deployed_name
         self.client = self._client()
+        self.context_prompt_path = context_prompt_path
+        self.context_prompt = self._get_context_prompt()
+        
+    
+    def _get_context_prompt(self) -> str:
+        if not isinstance(self.context_prompt_path, Path):
+            raise ValueError(f"context_prompt_path must be a pathlib.Path")
+        
+        with self.context_prompt_path.open('r', encoding='utf-8') as f:
+            return self.context_prompt_path.read_text(encoding='utf-8')
     
     def _client(self):
         return AzureOpenAI(
@@ -35,7 +47,7 @@ class Label(AOAIConfig):
                     "content":[
                         {
                             "type":"text",
-                            "text":"Describe the provided image"
+                            "text": self.context_prompt
                         },
                         {
                             "type":"image_url",
