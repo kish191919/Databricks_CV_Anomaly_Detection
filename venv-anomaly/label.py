@@ -6,7 +6,7 @@ import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 from collections import OrderedDict
-
+import pandas as pd
 
 
 class GenerateLabel(Label):
@@ -82,14 +82,25 @@ class GenerateLabel(Label):
             print(f"Error Parsing JSON: {e} ")
             return None
         
+def label_df(file_path:Path) -> pd.DataFrame:
+    with file_path.open('r', encoding='utf-8') as f:
+        data = json.load(f)
+    # return pd.DataFrame.from_dict(data, orient="index").reset_index() # key -> index
+    return pd.DataFrame.from_dict(data, orient="index").sort_index().reset_index() # key -> index
+
 
 if __name__  == "__main__":
     contextpromptpath = Path('prompt') / 'label.md'    
     input_dir = Path('frames')
     output_dir = Path('labels')
 
-    generatelabel = GenerateLabel(input_dir=input_dir, output_dir=output_dir, context_prompt_path=contextpromptpath)
-    generatelabel.exe_label(max_workers=5)
+
+    # generatelabel = GenerateLabel(input_dir=input_dir, output_dir=output_dir, context_prompt_path=contextpromptpath)
+    # generatelabel.exe_label(max_workers=5)
+
+    label_file = Path('labels') / 'label.json'
+    df = label_df(label_file)
+    print(df)
 
     # image_path = Path('frames') / 'frame_0000.jpg'
     # b64_image = generatelabel.encode_image(image_path)
