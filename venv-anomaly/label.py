@@ -1,6 +1,8 @@
 import base64
 from llm import Label
 from pathlib import Path
+import json
+import re
 
 class GenerateLabel(Label):
     def __init__(self, context_prompt_path):
@@ -15,6 +17,22 @@ class GenerateLabel(Label):
         except Exception as e:
             print(f"Error Encoding image : {image_path}, {e}")
             return None
+    
+    def parse_json_str(self, json_str:str) -> dict:
+        """Extract JSON from a string, handling edge cases"""
+
+        try:
+            match = re.search(r"```json\s*(.*?)\s*```", json_str, re.DOTALL)
+            if match:
+                json_data = match.group(1).strip()
+            else:
+                json_data = json_str.strip()
+            return json.loads(json_data)
+
+        except (json.JSONDecodeError, IndexError) as e:
+            print(f"Error Parsing JSON: {e} ")
+            return None
+        
 
 if __name__  == "__main__":
     contextpromptpath = Path('prompt') / 'label.md'
@@ -24,7 +42,9 @@ if __name__  == "__main__":
 
     b64_image = generatelabel.encode_image(image_path)
     response = generatelabel.run(b64_image)
-    print(response)
+    label = generatelabel.parse_json_str(response)
+    print(f"{type(response)}, {response}")
+    print(f"{type(label)}, {label}")
 
 
 
