@@ -74,6 +74,9 @@ class GenerateLabel(Label):
         output_path = self.output_dir_temp / f'{image_path.stem}.json'
         with output_path.open('w', encoding='utf-8') as f:
             json.dump(response, f, ensure_ascii=False, indent=4)
+        
+        # 추가
+        return response
 
     
 
@@ -93,7 +96,7 @@ class GenerateLabel(Label):
                 return None
 
         
-        # results = OrderedDict()
+        results = OrderedDict()
         with ThreadPoolExecutor(max_workers=max_workers) as executors:
             futures = {executors.submit(self.process_images, file) : file for file in files}
             # futures = [executors.submit(self.process_images, file) for file in files]
@@ -101,20 +104,21 @@ class GenerateLabel(Label):
             for future in tqdm(as_completed(futures), total=len(files), desc="Processing..."):
                 file = futures[future]
                 try:
-                    future.result()
-                    # results[file.name] = res 
+                    res = future.result()
+                    results[file.stem] = res 
                 except Exception as e:
                     print(f"Failed: {file}, {e}")
 
         # [Cache] Load the JSON responses from the files
-        self.gather_label_results()
+        collected = self.gather_label_results()
+        final = collected if collected else results
     
         # Save
-        # self.output_dir.mkdir(exist_ok=True)
-        # output_file_path = self.output_dir / "label.json"
+        self.output_dir.mkdir(exist_ok=True)
+        output_file_path = self.output_dir / "label.json"
 
-        # with output_file_path.open('w', encoding='utf-8') as f:
-        #     json.dump(results, f, ensure_ascii=False, indent=4 )
+        with output_file_path.open('w', encoding='utf-8') as f:
+             json.dump(results, f, ensure_ascii=False, indent=4 )
 
     def gather_label_results(self):
         """"Saves the results to a JSON file"""
@@ -138,10 +142,12 @@ class GenerateLabel(Label):
         now = datetime.datetime.now(tz)
         timestamp = now.isoformat('T', 'seconds').replace(':','-')
 
-        output_file_path = self.output_dir / f'label_{timestamp}.json'
+        output_file_path = self.output_dir / f'labels_{timestamp}.json'
         with output_file_path.open('w', encoding='utf-8') as f:
             json.dump(results, f, ensure_ascii=False, indent=4)
         self.output_dir_temp.rmdir()
+
+        return results
     
     def load_labels(self) ->set:
         """Loads the labels from a JSON file"""
@@ -154,16 +160,21 @@ class GenerateLabel(Label):
                 labels = json.load(f, object_pairs_hook=OrderedDict)
                 frames.update(labels.keys())
         return frames
+       
+# def label_df(file_path:Path) -> pd.DataFrame:
+#     with file_path.open('r', encoding='utf-8') as f:
+#         data = json.load(f)
+#     # return pd.DataFrame.from_dict(data, orient="index").reset_index() # key -> index
+#     return pd.DataFrame.from_dict(data, orient="index").sort_index().reset_index() # key -> index
 
-
+def labeltodataframe(label_path:Path) -> pd.DataFrame:
+    with label_path.open('r', encoding='utf-8') as f:
+        label_data = json.load(f)
     
-
-        
-def label_df(file_path:Path) -> pd.DataFrame:
-    with file_path.open('r', encoding='utf-8') as f:
-        data = json.load(f)
-    # return pd.DataFrame.from_dict(data, orient="index").reset_index() # key -> index
-    return pd.DataFrame.from_dict(data, orient="index").sort_index().reset_index() # key -> index
+    df = pd.DataFrame.from_dict(label_data, orient='index')
+    df.reset_index(inplace=True)
+    df.rename(columns={'index':'image_name', 'animal':'label'}, inplace=True)
+    return df
 
 
 if __name__  == "__main__":
@@ -171,13 +182,15 @@ if __name__  == "__main__":
     input_dir = Path('frames')
     output_dir = Path('labels')
 
-
     generatelabel = GenerateLabel(input_dir=input_dir, output_dir=output_dir, context_prompt_path=contextpromptpath)
     generatelabel.label(max_workers=5)
 
-    # label_file = Path('labels') / 'label.json'
-    # df = label_df(label_file)
-    # print(df)
+    label_data_path = Path('labels') / 'label.json'
+    df = labeltodataframe(label_data_path)
+    # df = label_df(label_data_path)
+    
+    print(df)
+    df.to_csv(output_dir / 'labels.csv', index=False)
 
     # image_path = Path('frames') / 'frame_0000.jpg'
     # b64_image = generatelabel.encode_image(image_path)
@@ -185,6 +198,7 @@ if __name__  == "__main__":
     # label = generatelabel.parse_json_str(response)
     # print(f"{type(response)}, {response}")
     # print(f"{type(label)}, {label}")
+
 
 
 
