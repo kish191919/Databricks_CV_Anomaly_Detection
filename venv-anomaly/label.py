@@ -112,13 +112,17 @@ class GenerateLabel(Label):
         # [Cache] Load the JSON responses from the files
         collected = self.gather_label_results()
         final = collected if collected else results
+
+        # 키 기준 정렬 (frame_0000, frame_0001, ...)
+        # key=lambda kv: int(re.search(r'\d+', kv[0]).group(0))
+        final_sorted = OrderedDict(sorted(final.items(), key=lambda kv: kv[0]))
     
         # Save
         self.output_dir.mkdir(exist_ok=True)
         output_file_path = self.output_dir / "label.json"
 
         with output_file_path.open('w', encoding='utf-8') as f:
-             json.dump(results, f, ensure_ascii=False, indent=4 )
+             json.dump(final_sorted, f, ensure_ascii=False, indent=4 )
 
     def gather_label_results(self):
         """"Saves the results to a JSON file"""
